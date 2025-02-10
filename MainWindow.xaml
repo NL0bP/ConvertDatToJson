@@ -1,0 +1,73 @@
+﻿<Window x:Class="ConvertDatToJson.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:system="clr-namespace:System;assembly=mscorlib"
+        Title="Convert Dat to Json" Height="400" Width="500"
+        WindowStartupLocation="CenterOwner"
+        Background="LightGray">
+    <Window.Resources>
+        <!-- Цвета -->
+        <SolidColorBrush x:Key="PrimaryBackgroundColor" Color="LightGray"/>
+        <SolidColorBrush x:Key="SecondaryBackgroundColor" Color="LightBlue"/>
+        <SolidColorBrush x:Key="PrimaryForegroundColor" Color="Black"/>
+        <SolidColorBrush x:Key="SecondaryForegroundColor" Color="White"/>
+        <SolidColorBrush x:Key="PrimaryBorderColor" Color="DarkGray"/>
+        <SolidColorBrush x:Key="SecondaryBorderColor" Color="DarkBlue"/>
+
+        <!-- Шрифты -->
+        <FontFamily x:Key="PrimaryFontFamily">Segoe UI</FontFamily>
+        <system:Double x:Key="PrimaryFontSize">12</system:Double>
+        <FontWeight x:Key="PrimaryFontWeight">Normal</FontWeight>
+        <FontWeight x:Key="BoldFontWeight">Bold</FontWeight>
+
+        <!-- Стиль для кнопок -->
+        <Style x:Key="BaseButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="100"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Background" Value="{StaticResource SecondaryBackgroundColor}"/>
+            <Setter Property="Foreground" Value="{StaticResource PrimaryForegroundColor}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource SecondaryBorderColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontFamily" Value="{StaticResource PrimaryFontFamily}"/>
+            <Setter Property="FontSize" Value="{StaticResource PrimaryFontSize}"/>
+            <Setter Property="FontWeight" Value="{StaticResource BoldFontWeight}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource SecondaryBorderColor}"/>
+                    <Setter Property="Foreground" Value="{StaticResource SecondaryForegroundColor}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Стиль для текстовых блоков -->
+        <Style x:Key="BaseTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="FontFamily" Value="{StaticResource PrimaryFontFamily}"/>
+            <Setter Property="FontSize" Value="{StaticResource PrimaryFontSize}"/>
+            <Setter Property="FontWeight" Value="{StaticResource PrimaryFontWeight}"/>
+            <Setter Property="Foreground" Value="{StaticResource PrimaryForegroundColor}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </Window.Resources>
+    <Grid>
+        <!-- Кнопка выбора папки -->
+        <Button x:Name="SelectFolderButton" Content="Выбрать папку" Style="{StaticResource BaseButtonStyle}" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" Width="120" Click="SelectFolderButton_Click"/>
+
+        <!-- Текстовое поле для вывода информации (стандартный стиль) -->
+        <TextBox x:Name="OutputTextBox" HorizontalAlignment="Stretch" Margin="10,50,10,10" VerticalAlignment="Stretch" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
+    </Grid>
+</Window>

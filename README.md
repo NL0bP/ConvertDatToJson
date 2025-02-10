@@ -33,11 +33,11 @@ C:\MyApp\
     GameData\
         map_data\
             doodad_map\
-                e_ancient_forest.json
-                another_doodad.json
+                doodad_spawns_main_e_ancient_forest.json
+                doodad_spawns_main_another_doodad.json
             npc_map\
-                e_ancient_forest.json
-                another_npc.json
+                npc_spawns_main_e_ancient_forest.json
+                npc_spawns_main_another_npc.json
 ```
 
 ---

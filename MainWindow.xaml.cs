@@ -133,6 +133,17 @@ namespace ConvertDatToJson
                     OutputTextBox.Text += $"Создана папка для JSON файлов: {jsonOutputFolder}\n";
                 }
 
+                // Определяем префикс для файлов в зависимости от папки
+                string filePrefix = "";
+                if (folderName.Equals("doodad_map", StringComparison.OrdinalIgnoreCase))
+                {
+                    filePrefix = "doodad_spawns_main_";
+                }
+                else if (folderName.Equals("npc_map", StringComparison.OrdinalIgnoreCase))
+                {
+                    filePrefix = "npc_spawns_main_";
+                }
+
                 // Обрабатываем все .dat файлы в текущей папке
                 var datFiles = Directory.GetFiles(subFolder, "*.dat");
                 foreach (var file in datFiles)
@@ -142,8 +153,8 @@ namespace ConvertDatToJson
                         // Парсим файл
                         var entities = ParseDatFile(file);
 
-                        // Формируем путь для сохранения JSON файла
-                        string jsonFileName = Path.GetFileNameWithoutExtension(file) + ".json";
+                        // Формируем имя JSON файла с префиксом
+                        string jsonFileName = filePrefix + Path.GetFileNameWithoutExtension(file) + ".json";
                         string jsonFilePath = Path.Combine(jsonOutputFolder, jsonFileName);
 
                         // Сериализуем данные в JSON и записываем на диск
@@ -160,14 +171,15 @@ namespace ConvertDatToJson
                 }
             }
         }
+
         private List<EntityData> ParseDatFile(string filePath)
         {
             var entities = new List<EntityData>();
             using (var stream = File.OpenRead(filePath))
             using (var reader = new BinaryReader(stream))
             {
-                // Размер одной записи в байтах
-                int recordSize = 16; // 4 (uint) + 4*3 (float x, y, z) + 4*3 (float Roll, Pitch, Yaw) + 4 (float Scale)
+                // Размер одной записи в байтах (без учета Scale и поворотов)
+                int recordSize = 16; // 4 (uint) + 4*3 (float x, y, z)
 
                 while (stream.Position < stream.Length)
                 {
@@ -180,18 +192,19 @@ namespace ConvertDatToJson
 
                     var entity = new EntityData
                     {
-                        UnitId = reader.ReadUInt32(),
+                        UnitId = reader.ReadUInt32(), // Читаем UnitId
                         Position = new Position
                         {
-                            X = reader.ReadSingle(),
-                            Y = reader.ReadSingle(),
-                            Z = reader.ReadSingle(),
-                            //Roll = reader.ReadSingle(),
-                            //Pitch = reader.ReadSingle(),
-                            //Yaw = reader.ReadSingle()
+                            X = reader.ReadSingle(), // Читаем X
+                            Y = reader.ReadSingle(), // Читаем Y
+                            Z = reader.ReadSingle(), // Читаем Z
+                            Roll = 0.0f,  // Фиксированное значение
+                            Pitch = 0.0f, // Фиксированное значение
+                            Yaw = 0.0f    // Фиксированное значение
                         },
-                        //Scale = reader.ReadSingle()
+                        Scale = 1.0f // Фиксированное значение
                     };
+
                     entities.Add(entity);
                 }
             }

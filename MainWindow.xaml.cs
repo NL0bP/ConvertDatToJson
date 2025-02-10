@@ -3,20 +3,17 @@ using System.Collections.Generic;
 using System.IO;
 using System.Windows;
 using System.Windows.Forms;
-
 using Newtonsoft.Json;
+using NLog;
+using MessageBox = System.Windows.MessageBox;
 
 namespace ConvertDatToJson
 {
-    public class AppConfig
-    {
-        public string LastSelectedFolder { get; set; }
-    }
-
     public partial class MainWindow : Window
     {
-        // Путь к файлу конфигурации
-        private readonly string _configFilePath;
+        // Логгер NLog
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
         // Переменная для хранения пути к папке
         private string _selectedFolderPath;
 
@@ -24,48 +21,41 @@ namespace ConvertDatToJson
         {
             InitializeComponent();
 
-            // Определяем путь к файлу конфигурации
-            _configFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
+            // Создаем папку для логов, если она не существует
+            string logsFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+            if (!Directory.Exists(logsFolder))
+            {
+                Directory.CreateDirectory(logsFolder);
+            }
 
-            // Загружаем конфигурацию при запуске
+            // Загружаем конфигурацию
             LoadConfig();
         }
 
         private void LoadConfig()
         {
-            if (File.Exists(_configFilePath))
+            string configFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
+            if (File.Exists(configFilePath))
             {
                 try
                 {
-                    string json = File.ReadAllText(_configFilePath);
+                    string json = File.ReadAllText(configFilePath);
                     var config = JsonConvert.DeserializeObject<AppConfig>(json);
 
+                    // Устанавливаем последний выбранный путь
                     _selectedFolderPath = config.LastSelectedFolder;
                     OutputTextBox.Text = $"Загружен последний выбранный путь: {_selectedFolderPath}\n";
+                    Logger.Info($"Загружен последний выбранный путь: {_selectedFolderPath}");
                 }
                 catch (Exception ex)
                 {
                     OutputTextBox.Text += $"Ошибка при загрузке конфигурации: {ex.Message}\n";
+                    Logger.Error(ex, "Ошибка при загрузке конфигурации");
                 }
             }
             else
             {
-                try
-                {
-                    var config = new AppConfig
-                    {
-                        LastSelectedFolder = string.Empty
-                    };
-
-                    string json = JsonConvert.SerializeObject(config, Formatting.Indented);
-                    File.WriteAllText(_configFilePath, json);
-
-                    OutputTextBox.Text += "Файл конфигурации создан.\n";
-                }
-                catch (Exception ex)
-                {
-                    OutputTextBox.Text += $"Ошибка при создании файла конфигурации: {ex.Message}\n";
-                }
+                Logger.Info("Файл конфигурации не найден. Будет создан новый.");
             }
         }
 
@@ -73,21 +63,22 @@ namespace ConvertDatToJson
         {
             try
             {
-                // Создаем объект конфигурации
+                string configFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
                 var config = new AppConfig
                 {
                     LastSelectedFolder = _selectedFolderPath
                 };
 
-                // Сериализуем в JSON и сохраняем в файл
+                // Сериализуем конфигурацию в JSON и сохраняем в файл
                 string json = JsonConvert.SerializeObject(config, Formatting.Indented);
-                File.WriteAllText(_configFilePath, json);
+                File.WriteAllText(configFilePath, json);
 
-                OutputTextBox.Text += $"Конфигурация сохранена: {_configFilePath}\n";
+                Logger.Info($"Конфигурация сохранена: {configFilePath}");
             }
             catch (Exception ex)
             {
                 OutputTextBox.Text += $"Ошибка при сохранении конфигурации: {ex.Message}\n";
+                Logger.Error(ex, "Ошибка при сохранении конфигурации");
             }
         }
 
@@ -106,6 +97,7 @@ namespace ConvertDatToJson
                 // Запоминаем путь к папке
                 _selectedFolderPath = folderDialog.SelectedPath;
                 OutputTextBox.Text = $"Выбрана папка: {_selectedFolderPath}\n";
+                Logger.Info($"Выбрана папка: {_selectedFolderPath}");
 
                 // Сохраняем конфигурацию
                 SaveConfig();
@@ -120,55 +112,73 @@ namespace ConvertDatToJson
             // Путь для сохранения JSON файлов (в папке GameData\map_data)
             string jsonOutputBaseFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GameData", "map_data");
 
-            // Обрабатываем все вложенные папки
-            foreach (var subFolder in Directory.GetDirectories(folderPath))
+            // Списки для хранения информации о файлах
+            var processedFiles = new List<string>();
+            var failedFiles = new List<string>();
+
+            // Получаем все .dat файлы в папке и подпапках
+            var datFiles = Directory.GetFiles(folderPath, "*.dat", SearchOption.AllDirectories);
+
+            // Настраиваем прогресс-бар
+            ProgressBar.Maximum = datFiles.Length;
+            ProgressBar.Value = 0;
+
+            // Обрабатываем каждый файл
+            foreach (var file in datFiles)
             {
-                string folderName = Path.GetFileName(subFolder); // Имя папки (например, doodad_map или npc_map)
-                string jsonOutputFolder = Path.Combine(jsonOutputBaseFolder, folderName); // Папка для сохранения JSON
+                try
+                {
+                    // Определяем папку для сохранения JSON
+                    string folderName = Path.GetFileName(Path.GetDirectoryName(file)); // Имя папки (doodad_map или npc_map)
+                    string jsonOutputFolder = Path.Combine(jsonOutputBaseFolder, folderName);
 
-                // Создаем папку для JSON, если она не существует
-                if (!Directory.Exists(jsonOutputFolder))
-                {
-                    Directory.CreateDirectory(jsonOutputFolder);
-                    OutputTextBox.Text += $"Создана папка для JSON файлов: {jsonOutputFolder}\n";
-                }
-
-                // Определяем префикс для файлов в зависимости от папки
-                string filePrefix = "";
-                if (folderName.Equals("doodad_map", StringComparison.OrdinalIgnoreCase))
-                {
-                    filePrefix = "doodad_spawns_main_";
-                }
-                else if (folderName.Equals("npc_map", StringComparison.OrdinalIgnoreCase))
-                {
-                    filePrefix = "npc_spawns_main_";
-                }
-
-                // Обрабатываем все .dat файлы в текущей папке
-                var datFiles = Directory.GetFiles(subFolder, "*.dat");
-                foreach (var file in datFiles)
-                {
-                    try
+                    // Создаем папку для JSON, если она не существует
+                    if (!Directory.Exists(jsonOutputFolder))
                     {
-                        // Парсим файл
-                        var entities = ParseDatFile(file);
-
-                        // Формируем имя JSON файла с префиксом
-                        string jsonFileName = filePrefix + Path.GetFileNameWithoutExtension(file) + ".json";
-                        string jsonFilePath = Path.Combine(jsonOutputFolder, jsonFileName);
-
-                        // Сериализуем данные в JSON и записываем на диск
-                        string json = JsonConvert.SerializeObject(entities, Formatting.Indented);
-                        File.WriteAllText(jsonFilePath, json);
-
-                        // Выводим информацию в интерфейс
-                        OutputTextBox.Text += $"Файл {file} успешно обработан. JSON сохранен в {jsonFilePath}\n";
+                        Directory.CreateDirectory(jsonOutputFolder);
+                        Logger.Info($"Создана папка для JSON файлов: {jsonOutputFolder}");
                     }
-                    catch (Exception ex)
-                    {
-                        OutputTextBox.Text += $"Ошибка при обработке файла {file}: {ex.Message}\n";
-                    }
+
+                    // Определяем префикс для файлов в зависимости от папки
+                    string filePrefix = folderName.Equals("doodad_map", StringComparison.OrdinalIgnoreCase) ? "doodad_spawns_main_" : "npc_spawns_main_";
+
+                    // Парсим файл
+                    var entities = ParseDatFile(file);
+
+                    // Формируем имя JSON файла с префиксом
+                    string jsonFileName = filePrefix + Path.GetFileNameWithoutExtension(file) + ".json";
+                    string jsonFilePath = Path.Combine(jsonOutputFolder, jsonFileName);
+
+                    // Сериализуем данные в JSON и записываем на диск
+                    string json = JsonConvert.SerializeObject(entities, Formatting.Indented);
+                    File.WriteAllText(jsonFilePath, json);
+
+                    // Добавляем файл в список успешно обработанных
+                    processedFiles.Add(file);
+                    Logger.Info($"Файл {file} успешно обработан. JSON сохранен в {jsonFilePath}");
                 }
+                catch (Exception ex)
+                {
+                    // Добавляем файл в список необработанных
+                    failedFiles.Add(file);
+                    Logger.Error(ex, $"Ошибка при обработке файла {file}");
+                }
+
+                // Обновляем прогресс-бар
+                ProgressBar.Value++;
+            }
+
+            // Выводим итоговое сообщение
+            string message = $"Обработка завершена.\nУспешно обработано файлов: {processedFiles.Count}\nНе удалось обработать файлов: {failedFiles.Count}";
+            MessageBox.Show(message, "Готово", MessageBoxButton.OK, MessageBoxImage.Information);
+            Logger.Info(message);
+
+            // Выводим список необработанных файлов
+            if (failedFiles.Count > 0)
+            {
+                string failedFilesMessage = "Не удалось обработать следующие файлы:\n" + string.Join("\n", failedFiles);
+                OutputTextBox.Text += failedFilesMessage + "\n";
+                Logger.Warn(failedFilesMessage);
             }
         }
 
@@ -178,7 +188,7 @@ namespace ConvertDatToJson
             using (var stream = File.OpenRead(filePath))
             using (var reader = new BinaryReader(stream))
             {
-                // Размер одной записи в байтах (без учета Scale и поворотов)
+                // Размер одной записи в байтах
                 int recordSize = 16; // 4 (uint) + 4*3 (float x, y, z)
 
                 while (stream.Position < stream.Length)
@@ -186,23 +196,23 @@ namespace ConvertDatToJson
                     // Проверяем, что осталось достаточно байт для чтения
                     if (stream.Length - stream.Position < recordSize)
                     {
-                        OutputTextBox.Text += $"Файл {filePath} поврежден или имеет неполные данные.\n";
+                        Logger.Warn($"Файл {filePath} поврежден или имеет неполные данные.");
                         break;
                     }
 
                     var entity = new EntityData
                     {
-                        UnitId = reader.ReadUInt32(), // Читаем UnitId
+                        UnitId = reader.ReadUInt32(),
                         Position = new Position
                         {
-                            X = reader.ReadSingle(), // Читаем X
-                            Y = reader.ReadSingle(), // Читаем Y
-                            Z = reader.ReadSingle(), // Читаем Z
-                            Roll = 0.0f,  // Фиксированное значение
-                            Pitch = 0.0f, // Фиксированное значение
-                            Yaw = 0.0f    // Фиксированное значение
+                            X = reader.ReadSingle(),
+                            Y = reader.ReadSingle(),
+                            Z = reader.ReadSingle(),
+                            Roll = 0.0f,
+                            Pitch = 0.0f,
+                            Yaw = 0.0f
                         },
-                        Scale = 1.0f // Фиксированное значение
+                        Scale = 1.0f
                     };
 
                     entities.Add(entity);
@@ -210,6 +220,11 @@ namespace ConvertDatToJson
             }
             return entities;
         }
+    }
+
+    public class AppConfig
+    {
+        public string LastSelectedFolder { get; set; }
     }
 
     public class EntityData
